@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理者画面 - メニュー設定</title>
+    <title>管理者画面 - メニュー設定 & 注文管理</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
         h1, h2 { text-align: center; color: #333; }
         .container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-top: 20px; }
-        .panel { flex: 1; min-width: 300px; max-width: 500px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .panel { flex: 1; min-width: 320px; max-width: 500px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .menu-list { list-style: none; padding: 0; }
         .menu-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
         .menu-number { background: #666; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-right: 10px; }
@@ -18,6 +18,10 @@
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
         .form-group input { width: 93%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         .hidden { display: none; }
+        
+        /* 注文管理用のスタイル */
+        .order-card { background: #fffde7; border: 1px solid #fff59d; padding: 10px; margin-bottom: 10px; border-radius: 6px; }
+        .order-header { display: flex; justify-content: space-between; font-weight: bold; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -28,11 +32,17 @@
     </div>
 
     <div id="adminContent" class="hidden">
-        <h1>🛠️ 管理者メニュー設定画面</h1>
+        <h1>🛠️ 管理者コントロールパネル</h1>
         <p style="text-align: center;"><a href="index.html" target="_blank">👉 お客さん用の注文画面を開く</a></p>
 
         <div class="container">
-            <!-- 追加フォーム -->
+            <!-- 💡 新設：注文確認画面 -->
+            <div class="panel" style="border-top: 4px solid #0288d1; max-width: 600px; flex: 2;">
+                <h2>📥 受信した注文一覧</h2>
+                <div id="orderList"></div>
+            </div>
+
+            <!-- メニュー追加フォーム -->
             <div class="panel" style="border-top: 4px solid #d9534f;">
                 <h2>✨ 新しいメニューを追加</h2>
                 <div class="form-group">
@@ -48,43 +58,40 @@
                     <input type="number" id="menuPrice" placeholder="例: 850">
                 </div>
                 <button class="btn" onclick="addMenu()">メニューを登録する</button>
-            </div>
 
-            <!-- 現在のメニュー確認・削除 -->
-            <div class="panel" style="border-top: 4px solid #666;">
-                <h2>📋 登録済みのメニュー一覧</h2>
+                <h2 style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">📋 登録中のメニュー</h2>
                 <ul id="adminMenuList" class="menu-list"></ul>
             </div>
         </div>
     </div>
 
     <script>
-        // 管理者パスワード（自由に変更してください）
-        const ADMIN_PASSWORD = "1234";
+        const ADMIN_PASSWORD = "0404";
 
         let menus = JSON.parse(localStorage.getItem('famires_menus')) || [];
+        let orders = JSON.parse(localStorage.getItem('famires_orders')) || [];
 
-        // ページを開いた瞬間にパスワードを要求
         function checkPassword() {
             const input = prompt('管理者パスワードを入力してください:');
             if (input === ADMIN_PASSWORD) {
                 document.getElementById('authLock').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
                 updateAdminDisplay();
+                updateOrderDisplay();
             } else {
-                alert('パスワードが違います。アクセスできません。');
-                // 間違えたら真っ白な画面にするか、index.htmlに戻す
+                alert('パスワードが違います。');
                 window.location.href = 'index.html';
             }
         }
 
+        // メニュー一覧の表示更新
         function updateAdminDisplay() {
             menus.sort((a, b) => a.id - b.id);
             const ul = document.getElementById('adminMenuList');
             ul.innerHTML = '';
 
             if (menus.length === 0) {
-                ul.innerHTML = '<li style="text-align:center; color:#777; padding:20px;">現在登録されているメニューはありません。</li>';
+                ul.innerHTML = '<li style="text-align:center; color:#777;">メニューはありません。</li>';
                 return;
             }
 
@@ -92,14 +99,58 @@
                 const li = document.createElement('li');
                 li.className = 'menu-item';
                 li.innerHTML = `
-                    <div>
-                        <span class="menu-number">${item.id}</span>
-                        <strong>${item.name}</strong> - ${item.price}円
-                    </div>
+                    <div><span class="menu-number">${item.id}</span><strong>${item.name}</strong></div>
                     <button class="btn btn-danger" onclick="deleteMenu(${item.id})">削除</button>
                 `;
                 ul.appendChild(li);
             });
+        }
+
+        // 💡 注文一覧の表示更新
+        function updateOrderDisplay() {
+            const orderListDiv = document.getElementById('orderList');
+            orderListDiv.innerHTML = '';
+
+            if (orders.length === 0) {
+                orderListDiv.innerHTML = '<div style="text-align:center; color:#777; padding:20px;">現在、新しい注文はありません。</div>';
+                return;
+            }
+
+            // 新しい注文が上に来るように逆順でループ
+            for (let i = orders.length - 1; i >= 0; i--) {
+                const order = orders[i];
+                const card = document.createElement('div');
+                card.className = 'order-card';
+
+                // 商品のテキストをまとめる
+                let itemsHtml = '<ul>';
+                order.items.forEach(item => {
+                    itemsHtml += `<li>【${item.id}】 <strong>${item.name}</strong> - 1点</li>`;
+                });
+                itemsHtml += '</ul>';
+
+                card.innerHTML = `
+                    <div class="order-header">
+                        <span>⏰ 注文時刻: ${order.time}</span>
+                        <span style="color:#d9534f;">状態: ${order.status}</span>
+                    </div>
+                    <div style="padding: 10px 0;">
+                        ${itemsHtml}
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #eee; padding-top:5px;">
+                        <span>合計金額: <strong>${order.total}円</strong></span>
+                        <button class="btn" style="width:120px; padding:5px; background:#0288d1;" onclick="completeOrder(${order.id})">配膳完了 / 消去</button>
+                    </div>
+                `;
+                orderListDiv.appendChild(card);
+            }
+        }
+
+        // 💡 料理を届けたらリストから消す関数
+        function completeOrder(orderId) {
+            orders = orders.filter(o => o.id !== orderId);
+            localStorage.setItem('famires_orders', JSON.stringify(orders));
+            updateOrderDisplay();
         }
 
         function addMenu() {
@@ -112,35 +163,36 @@
             const price = parseInt(priceInput.value);
 
             if (!id || !name || !price) {
-                alert('すべての項目を正しく入力してください。');
+                alert('入力が正しくありません。');
                 return;
             }
 
             if (menus.some(m => m.id === id)) {
-                alert(`商品番号 ${id} 番はすでに登録されています。`);
+                alert(`商品番号 ${id} 番は登録済みです。`);
                 return;
             }
 
             menus.push({ id, name, price });
             localStorage.setItem('famires_menus', JSON.stringify(menus));
 
-            idInput.value = '';
-            nameInput.value = '';
-            priceInput.value = '';
-
+            idInput.value = ''; nameInput.value = ''; priceInput.value = '';
             updateAdminDisplay();
-            alert('メニューを追加しました！');
         }
 
         function deleteMenu(id) {
-            if (confirm(`商品番号 ${id} 番を削除しますか？`)) {
+            if (confirm('削除しますか？')) {
                 menus = menus.filter(m => m.id !== id);
                 localStorage.setItem('famires_menus', JSON.stringify(menus));
                 updateAdminDisplay();
             }
         }
 
-        // 起動時に認証を実行
+        // お客さんが注文を送信したときに、この管理画面側を自動でリアルタイム更新する
+        window.addEventListener('storage', () => {
+            orders = JSON.parse(localStorage.getItem('famires_orders')) || [];
+            updateOrderDisplay();
+        });
+
         checkPassword();
     </script>
 </body>
