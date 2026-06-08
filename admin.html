@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者画面 - メニュー設定</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        h1, h2 { text-align: center; color: #333; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-top: 20px; }
+        .panel { flex: 1; min-width: 300px; max-width: 500px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .menu-list { list-style: none; padding: 0; }
+        .menu-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+        .menu-number { background: #666; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-right: 10px; }
+        .btn { background: #5cb85c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 1em; }
+        .btn-danger { background: #d9534f; width: auto; padding: 4px 8px; font-size: 12px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 93%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="authLock">
+        <h2 style="margin-top: 100px;">🔒 管理者認証</h2>
+        <p style="text-align:center;">このページを開くにはパスワードが必要です。</p>
+    </div>
+
+    <div id="adminContent" class="hidden">
+        <h1>🛠️ 管理者メニュー設定画面</h1>
+        <p style="text-align: center;"><a href="index.html" target="_blank">👉 お客さん用の注文画面を開く</a></p>
+
+        <div class="container">
+            <!-- 追加フォーム -->
+            <div class="panel" style="border-top: 4px solid #d9534f;">
+                <h2>✨ 新しいメニューを追加</h2>
+                <div class="form-group">
+                    <label>商品番号 (半角数字):</label>
+                    <input type="number" id="menuId" placeholder="例: 101">
+                </div>
+                <div class="form-group">
+                    <label>メニュー名:</label>
+                    <input type="text" id="menuName" placeholder="例: 特製ハンバーグ">
+                </div>
+                <div class="form-group">
+                    <label>価格 (円):</label>
+                    <input type="number" id="menuPrice" placeholder="例: 850">
+                </div>
+                <button class="btn" onclick="addMenu()">メニューを登録する</button>
+            </div>
+
+            <!-- 現在のメニュー確認・削除 -->
+            <div class="panel" style="border-top: 4px solid #666;">
+                <h2>📋 登録済みのメニュー一覧</h2>
+                <ul id="adminMenuList" class="menu-list"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 管理者パスワード（自由に変更してください）
+        const ADMIN_PASSWORD = "1234";
+
+        let menus = JSON.parse(localStorage.getItem('famires_menus')) || [];
+
+        // ページを開いた瞬間にパスワードを要求
+        function checkPassword() {
+            const input = prompt('管理者パスワードを入力してください:');
+            if (input === ADMIN_PASSWORD) {
+                document.getElementById('authLock').classList.add('hidden');
+                document.getElementById('adminContent').classList.remove('hidden');
+                updateAdminDisplay();
+            } else {
+                alert('パスワードが違います。アクセスできません。');
+                // 間違えたら真っ白な画面にするか、index.htmlに戻す
+                window.location.href = 'index.html';
+            }
+        }
+
+        function updateAdminDisplay() {
+            menus.sort((a, b) => a.id - b.id);
+            const ul = document.getElementById('adminMenuList');
+            ul.innerHTML = '';
+
+            if (menus.length === 0) {
+                ul.innerHTML = '<li style="text-align:center; color:#777; padding:20px;">現在登録されているメニューはありません。</li>';
+                return;
+            }
+
+            menus.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'menu-item';
+                li.innerHTML = `
+                    <div>
+                        <span class="menu-number">${item.id}</span>
+                        <strong>${item.name}</strong> - ${item.price}円
+                    </div>
+                    <button class="btn btn-danger" onclick="deleteMenu(${item.id})">削除</button>
+                `;
+                ul.appendChild(li);
+            });
+        }
+
+        function addMenu() {
+            const idInput = document.getElementById('menuId');
+            const nameInput = document.getElementById('menuName');
+            const priceInput = document.getElementById('menuPrice');
+
+            const id = parseInt(idInput.value);
+            const name = nameInput.value.trim();
+            const price = parseInt(priceInput.value);
+
+            if (!id || !name || !price) {
+                alert('すべての項目を正しく入力してください。');
+                return;
+            }
+
+            if (menus.some(m => m.id === id)) {
+                alert(`商品番号 ${id} 番はすでに登録されています。`);
+                return;
+            }
+
+            menus.push({ id, name, price });
+            localStorage.setItem('famires_menus', JSON.stringify(menus));
+
+            idInput.value = '';
+            nameInput.value = '';
+            priceInput.value = '';
+
+            updateAdminDisplay();
+            alert('メニューを追加しました！');
+        }
+
+        function deleteMenu(id) {
+            if (confirm(`商品番号 ${id} 番を削除しますか？`)) {
+                menus = menus.filter(m => m.id !== id);
+                localStorage.setItem('famires_menus', JSON.stringify(menus));
+                updateAdminDisplay();
+            }
+        }
+
+        // 起動時に認証を実行
+        checkPassword();
+    </script>
+</body>
+</html>
